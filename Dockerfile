@@ -7,7 +7,8 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PRUSA_SLICER_PATH=/usr/local/bin/prusa-slicer
+    PRUSA_SLICER_PATH=/usr/local/bin/prusa-slicer \
+    CONFIG_PATH=/data/config.json
 
 # wget/bzip2 for install; OpenGL/GTK/X11 stack so prusa-slicer links headless
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -57,9 +58,10 @@ COPY utils.py .
 COPY templates/ ./templates/
 COPY static/ ./static/
 
-RUN mkdir -p logs \
+RUN mkdir -p logs /data \
     && useradd -m -u 1000 appuser \
-    && chown -R appuser:appuser /app
+    && chown -R appuser:appuser /app \
+    && chown appuser:appuser /data
 
 USER appuser
 
@@ -68,4 +70,4 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/config', timeout=5)" || exit 1
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "300", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "300", "--access-logfile", "-", "--error-logfile", "-", "app:app"]

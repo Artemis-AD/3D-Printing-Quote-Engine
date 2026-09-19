@@ -10,9 +10,10 @@ services:
       - FLASK_ENV=production
       - FLASK_DEBUG=False
       - PRUSA_SLICER_PATH=/usr/local/bin/prusa-slicer
+      - CONFIG_PATH=/data/config.json
     volumes:
-      # Mount config file to persist settings
-      - ./config.json:/app/config.json
+      # Persist settings at CONFIG_PATH (matches Dockerfile / Railway volume)
+      - ./data:/data
       # Mount logs directory
       - ./logs:/app/logs
     restart: unless-stopped

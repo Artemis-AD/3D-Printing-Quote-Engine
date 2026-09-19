@@ -3,6 +3,7 @@ Configuration management for Machine Shop Suite - 3D Printing Quote Engine
 """
 import os
 import json
+import tempfile
 from pathlib import Path
 
 
@@ -12,10 +13,39 @@ class Config:
     # Default PrusaSlicer path (overridden by environment variable or config file)
     DEFAULT_SLICER_PATH = "prusa-slicer"  # Assumes prusa-slicer is in PATH
 
-    def __init__(self, config_file='config.json'):
+    def __init__(self, config_file=None):
         """Initialize configuration from file or defaults"""
+        if config_file is None:
+            config_file = os.getenv('CONFIG_PATH', 'config.json')
         self.config_file = config_file
-        self.config_data = self._load_config()
+        self._config_data = None
+        self._mtime = None
+        self._reload_if_stale()
+
+    def _file_mtime(self):
+        """Return a disk stamp so replace() is visible even when mtime is coarse."""
+        try:
+            stat = os.stat(self.config_file)
+            return (stat.st_mtime, stat.st_size, stat.st_ino)
+        except OSError:
+            return None
+
+    def _reload_if_stale(self):
+        """Reload config_data from disk when the file mtime/identity has changed."""
+        mtime = self._file_mtime()
+        if self._config_data is not None and mtime == self._mtime:
+            return
+        self._config_data = self._load_config()
+        self._mtime = mtime
+
+    @property
+    def config_data(self):
+        self._reload_if_stale()
+        return self._config_data
+
+    @config_data.setter
+    def config_data(self, value):
+        self._config_data = value
 
     def _load_config(self):
         """Load configuration from JSON file or return defaults"""
@@ -215,10 +245,24 @@ class Config:
         }
 
     def save(self):
-        """Save current configuration to JSON file"""
+        """Save current configuration to JSON file atomically."""
         try:
-            with open(self.config_file, 'w') as f:
-                json.dump(self.config_data, f, indent=2)
+            directory = os.path.dirname(os.path.abspath(self.config_file))
+            os.makedirs(directory, exist_ok=True)
+            fd, tmp_path = tempfile.mkstemp(prefix='.config-', suffix='.tmp', dir=directory)
+            try:
+                with os.fdopen(fd, 'w') as handle:
+                    json.dump(self._config_data, handle, indent=2)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                os.replace(tmp_path, self.config_file)
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
+            self._mtime = self._file_mtime()
             return True
         except Exception as e:
             print(f"Error saving config: {e}")
