@@ -9,12 +9,13 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PRUSA_SLICER_PATH=/usr/local/bin/prusa-slicer
 
-# wget/bzip2 for install; libGL + GTK stack so prusa-slicer can run headless
+# wget/bzip2 for install; OpenGL/GTK/X11 stack so prusa-slicer links headless
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
     bzip2 \
     libgl1 \
+    libglu1-mesa \
     libglib2.0-0 \
     libgtk-3-0 \
     libdbus-1-3 \
@@ -23,7 +24,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxi6 \
     libxext6 \
     libxrender1 \
+    libsm6 \
+    libice6 \
     libgomp1 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libatk1.0-0 \
+    libgdk-pixbuf-2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Official linux-x64 GTK3 tarball (AppImage extract + webkit packages break on slim)
@@ -33,7 +40,10 @@ RUN wget -q "https://github.com/prusa3d/PrusaSlicer/releases/download/version_2.
     && tar -xjf /tmp/prusaslicer.tar.bz2 -C /opt/prusaslicer --strip-components=1 \
     && ln -sf /opt/prusaslicer/bin/prusa-slicer /usr/local/bin/prusa-slicer \
     && rm /tmp/prusaslicer.tar.bz2 \
-    && test -x /usr/local/bin/prusa-slicer
+    && test -x /usr/local/bin/prusa-slicer \
+    && (ldd /usr/local/bin/prusa-slicer | tee /tmp/ldd.txt) \
+    && ! grep -q "not found" /tmp/ldd.txt \
+    && rm /tmp/ldd.txt
 
 WORKDIR /app
 
