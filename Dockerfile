@@ -9,10 +9,21 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PRUSA_SLICER_PATH=/usr/local/bin/prusa-slicer
 
+# wget/bzip2 for install; libGL + GTK stack so prusa-slicer can run headless
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
     bzip2 \
+    libgl1 \
+    libglib2.0-0 \
+    libgtk-3-0 \
+    libdbus-1-3 \
+    libxcb1 \
+    libx11-6 \
+    libxi6 \
+    libxext6 \
+    libxrender1 \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Official linux-x64 GTK3 tarball (AppImage extract + webkit packages break on slim)
