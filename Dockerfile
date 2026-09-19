@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bzip2 \
     libgl1 \
     libglu1-mesa \
+    libegl1 \
     libglib2.0-0 \
     libgtk-3-0 \
     libdbus-1-3 \
