@@ -1,5 +1,5 @@
 # Machine Shop Suite - 3D Printing Quote Engine
-# Aussie 3D fork: fixed dead PrusaSlicer 2.7.0 AppImage URL (404).
+# Aussie 3D fork: fixed dead PrusaSlicer download + slim Debian deps.
 
 FROM python:3.11-slim AS base
 
@@ -12,18 +12,17 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
-    libgtk-3-0 \
-    libwebkit2gtk-4.0-37 \
+    bzip2 \
     && rm -rf /var/lib/apt/lists/*
 
-# PrusaSlicer 2.7.4 Linux x64 GTK3 AppImage (upstream Dockerfile 2.7.0 URL 404s)
-RUN wget -q "https://github.com/prusa3d/PrusaSlicer/releases/download/version_2.7.4/PrusaSlicer-2.7.4%2Blinux-x64-GTK3-202404050928.AppImage" \
-    -O /usr/local/bin/PrusaSlicer.AppImage \
-    && chmod +x /usr/local/bin/PrusaSlicer.AppImage \
-    && cd /usr/local/bin \
-    && ./PrusaSlicer.AppImage --appimage-extract \
-    && ln -sf /usr/local/bin/squashfs-root/usr/bin/prusa-slicer /usr/local/bin/prusa-slicer \
-    && rm PrusaSlicer.AppImage
+# Official linux-x64 GTK3 tarball (AppImage extract + webkit packages break on slim)
+RUN wget -q "https://github.com/prusa3d/PrusaSlicer/releases/download/version_2.7.4/PrusaSlicer-2.7.4%2Blinux-x64-GTK3-202404050928.tar.bz2" \
+    -O /tmp/prusaslicer.tar.bz2 \
+    && mkdir -p /opt/prusaslicer \
+    && tar -xjf /tmp/prusaslicer.tar.bz2 -C /opt/prusaslicer --strip-components=1 \
+    && ln -sf /opt/prusaslicer/bin/prusa-slicer /usr/local/bin/prusa-slicer \
+    && rm /tmp/prusaslicer.tar.bz2 \
+    && test -x /usr/local/bin/prusa-slicer
 
 WORKDIR /app
 
