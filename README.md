@@ -208,7 +208,7 @@ docker build -t machineshop-suite .
 # Run the container
 docker run -d \
   -p 5000:5000 \
-  -v $(pwd)/config.json:/app/config.json \
+  -v $(pwd)/data:/data \
   -v $(pwd)/logs:/app/logs \
   --name machineshop \
   machineshop-suite

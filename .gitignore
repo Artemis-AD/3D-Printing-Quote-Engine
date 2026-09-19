@@ -46,6 +46,7 @@ ENV/
 
 # Application
 config.json
+data/
 logs/
 *.log
 

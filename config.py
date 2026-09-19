@@ -23,14 +23,15 @@ class Config:
         self._reload_if_stale()
 
     def _file_mtime(self):
-        """Return config file mtime, or None if the file is missing."""
+        """Return a disk stamp so replace() is visible even when mtime is coarse."""
         try:
-            return os.path.getmtime(self.config_file)
+            stat = os.stat(self.config_file)
+            return (stat.st_mtime, stat.st_size, stat.st_ino)
         except OSError:
             return None
 
     def _reload_if_stale(self):
-        """Reload config_data from disk when the file mtime has changed."""
+        """Reload config_data from disk when the file mtime/identity has changed."""
         mtime = self._file_mtime()
         if self._config_data is not None and mtime == self._mtime:
             return

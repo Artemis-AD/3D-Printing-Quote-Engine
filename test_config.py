@@ -100,6 +100,16 @@ class ConfigReloadTests(unittest.TestCase):
         other = Config(self.config_path)
         self.assertEqual(other.get_pricing_config()['base_cost'], 42)
 
+    def test_existing_instance_sees_another_instance_save(self):
+        self._write_config({"pricing": {"base_cost": 1}})
+        worker_a = Config(self.config_path)
+        worker_b = Config(self.config_path)
+        self.assertEqual(worker_b.get_pricing_config()['base_cost'], 1)
+
+        worker_a.config_data = {"pricing": {"base_cost": 77}}
+        self.assertTrue(worker_a.save())
+        self.assertEqual(worker_b.get_pricing_config()['base_cost'], 77)
+
     def test_save_writes_atomically_without_temp_leftovers(self):
         self._write_config({"pricing": {"base_cost": 1}})
         cfg = Config(self.config_path)
