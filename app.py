@@ -7,6 +7,8 @@ from werkzeug.utils import secure_filename
 import os
 import tempfile
 import logging
+import hmac
+from urllib.parse import urlsplit
 from logging.handlers import RotatingFileHandler
 
 from config import config
@@ -14,8 +16,58 @@ from utils import allowed_file, convert_stl_to_gcode, extract_filament_usage
 
 # Initialize Flask app
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = config.get('file_settings', 'max_file_size_mb', default=100) * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = min(20, config.get('file_settings', 'max_file_size_mb', default=20)) * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = tempfile.gettempdir()
+
+
+@app.before_request
+def require_authentication():
+    """Protect the UI and API before parsing bodies or running the slicer."""
+    if request.endpoint == 'health' and request.method in ('GET', 'HEAD'):
+        return None
+
+    expected = os.environ.get('QUOTE_ENGINE_AUTH_TOKEN', '')
+    if not expected:
+        return jsonify(success=False, error='Authentication is not configured'), 503
+
+    def matches(value):
+        return bool(value) and hmac.compare_digest(value.encode('utf-8'), expected.encode('utf-8'))
+
+    # API clients use an explicit header; browsers use the built-in login prompt.
+    if matches(request.headers.get('X-Quote-Engine-Token', '')):
+        return None
+    auth = request.authorization
+    if not (auth and auth.type == 'basic' and auth.username == 'admin' and matches(auth.password or '')):
+        response = jsonify(success=False, error='Authentication required')
+        response.status_code = 401
+        response.headers['WWW-Authenticate'] = 'Basic realm="Quote Engine", charset="UTF-8"'
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    # Basic credentials are ambient in browsers: reject cross-site writes.
+    if request.method not in ('GET', 'HEAD', 'OPTIONS'):
+        origin = request.headers.get('Origin')
+        if request.headers.get('Sec-Fetch-Site') == 'cross-site':
+            return jsonify(success=False, error='Cross-site request rejected'), 403
+        if origin:
+            parsed = urlsplit(origin)
+            if parsed.scheme not in ('http', 'https') or parsed.netloc != request.host:
+                return jsonify(success=False, error='Cross-site request rejected'), 403
+
+
+@app.after_request
+def prevent_sensitive_caching(response):
+    if request.endpoint != 'health':
+        response.headers['Cache-Control'] = 'no-store'
+        response.vary.add('Authorization')
+        response.vary.add('X-Quote-Engine-Token')
+    return response
+
+
+@app.route('/health')
+def health():
+    """Public, non-sensitive liveness endpoint for container health checks."""
+    return jsonify(status='ok')
 
 # Configure logging
 if not app.debug:
@@ -441,7 +493,7 @@ def manage_settings():
 @app.errorhandler(413)
 def request_entity_too_large(error):
     """Handle file too large error"""
-    max_size = config.get('file_settings', 'max_file_size_mb', default=100)
+    max_size = app.config['MAX_CONTENT_LENGTH'] // (1024 * 1024)
     return jsonify({
         'success': False,
         'error': f'File too large. Maximum size is {max_size}MB'
