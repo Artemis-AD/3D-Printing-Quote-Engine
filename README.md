@@ -439,3 +439,23 @@ Need help deploying or customizing Machine Shop Suite for your business?
 ---
 
 **Made with ❤️ for the maker community**
+# Production authentication
+
+Set `QUOTE_ENGINE_AUTH_TOKEN` to a cryptographically random secret before deploying.
+The application fails closed when it is missing. All UI and API routes require
+authentication, except `GET /health` and `HEAD /health` (non-sensitive liveness).
+
+Staff can use the browser's HTTP Basic login prompt with username `admin` and
+the value of `QUOTE_ENGINE_AUTH_TOKEN` as the password. Retrieve it privately from
+Railway; do not put it in a URL, source file, chat or log. Browser requests to the
+same origin continue using this login, including the settings page's API requests.
+API clients must send the same value in the `X-Quote-Engine-Token` header.
+Use HTTPS for public access. Query-string credentials are not supported.
+
+Authenticated browser writes reject cross-site origins. Responses are not cached.
+Uploads are capped at 20 MB including multipart overhead, or the smaller configured
+limit. The settings API cannot increase this hard ceiling. The Docker health check
+uses `/health` rather than the protected `/api/config` endpoint.
+
+Run `python -m unittest test_config test_security -v` to check authentication,
+temporary-file settings writes, cross-site write rejection and upload limits.
